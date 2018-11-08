@@ -11,23 +11,33 @@ use Predis;
 **/
 class CacheService
 {
+    public $predis;
+    public $serverStatus;
     public function __construct($host, $port, $prefix)
     {
 
+        try {
+            $this->predis = new Predis\Client(array('host' => $host, 'port' => $port, 'prefix' => $prefix));
+            $this->getServerInfo();
+        } catch (Predis\Connection\ConnectionException $exception){
+            $this->getServerInfo();
+            //echo $exception->getMessage();
+        }
     }
 
-    public function get($key)
-    {
-
+    public function getServerInfo(){
+        $serverInfo = $this->predis->info();
+        if(!empty($serverInfo)){
+            $this->setServerStatus('Running');
+        }else{
+            $this->setServerStatus('Down');
+        }
+        return $serverInfo;
     }
-
-    public function set($key, $value)
-    {
-
+    public function setServerStatus($status){
+        $this->serverStatus = $status;
     }
-
-    public function del($key)
-    {
-
+    public function getServerStatus(){
+        return $this->serverStatus;
     }
 }

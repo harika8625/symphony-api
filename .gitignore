@@ -12,3 +12,5 @@
 /composer.phar
 interview.tar.gz
 .DS_Store
+/.idea
+/mongodb/

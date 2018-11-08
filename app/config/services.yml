@@ -5,3 +5,11 @@ services:
     cache_service:
         class:        AppBundle\Service\CacheService
         arguments:    [%cache_host%, %cache_port%, %cache_prefix%]
+    sorted_set_cache_service:
+        class:        AppBundle\Service\SortedSetCacheService
+        parent:       cache_service
+    customer_service:
+        class: AppBundle\Service\CustomerService
+        arguments: ['@database_service']
+    custom_utils:
+      class: AppBundle\Service\CustomUtils

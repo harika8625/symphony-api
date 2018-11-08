@@ -10,22 +10,61 @@ use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 
 class CustomersController extends Controller
 {
+
     /**
      * @Route("/customers/")
      * @Method("GET")
      */
     public function getAction()
     {
-        $cacheService = $this->get('cache_service');
-        // TODO: Implement logic here
+        $cacheServerStatus = $this->get('cache_service')->getServerStatus();
 
-        if (empty($customers)) {
-            $database = $this->get('database_service')->getDatabase();
-            $customers = $database->customers->find();
-            $customers = iterator_to_array($customers);
+        if($cacheServerStatus == 'Running') {
+            //Read the cache element name from config parameters
+            $cacheElementName = $this->container->getParameter('cache_element_customers') ?? 'customers';
+
+            //Retrieving elements from cache server
+            $cachedCustomers = $this->get('sorted_set_cache_service')->get(array('key' => $cacheElementName, 'min' => 0, 'max' => -1));
         }
 
-        return new JsonResponse($customers);
+        if(!empty($cachedCustomers)) {
+            $customers = array_map(function ($element) { return unserialize($element); }, $cachedCustomers);
+        }else{
+            //Hit the database to get customers data
+            $customers = $this->get('customer_service')->getCustomers();
+
+            //Save customers to cache for quick retrieval
+            if(!empty($customers)){
+                $formattedCustomerDetails = array();
+                foreach($customers as $customer){
+                    //Prepare data to add to cache server
+                    $customerDetails = (array) $customer;
+                    $idArray = (array) $customer['_id'];
+                    $id = $idArray['oid'];
+
+                    $customerArray['name'] = $customerDetails['name'];
+                    $customerArray['age'] = $customerDetails['age'];
+                    $customerArray['id'] = $id;
+
+                    //Format customers array for json response
+                    $formattedCustomerDetails[] = $customerArray;
+
+                    if($cacheServerStatus == 'Running') {
+                        //Request to add each customer details to the cache server
+                        $this->get('sorted_set_cache_service')->set(array('key' => $cacheElementName, 'score' => 1, 'value' => serialize($customerArray)));
+                    }
+                }
+                $customers = $formattedCustomerDetails;
+            }
+
+
+        }
+
+        if(!empty($customers)) {
+            return new JsonResponse($customers,200);
+        }else{
+            return new JsonResponse(array(), 204);
+        }
     }
 
     /**
@@ -34,18 +73,34 @@ class CustomersController extends Controller
      */
     public function postAction(Request $request)
     {
-        $database = $this->get('database_service')->getDatabase();
         $customers = json_decode($request->getContent());
 
-        if (empty($customers)) {
-            return new JsonResponse(['status' => 'No donuts for you'], 400);
+        if(!empty($customers)) {
+
+            //Read the cache element name from config parameters
+            $cacheElementName = $this->container->getParameter('cache_element_customers') ?? 'customers';
+
+            $cacheServerStatus = $this->get('cache_service')->getServerStatus();
+
+            foreach ($customers as $customer) {
+
+                //Request to add customer to database and return last inserted id
+                $lastInsertedId = $this->get('customer_service')->addCustomer($customer);
+
+                if (!empty($lastInsertedId) && $cacheServerStatus == 'Running') {
+                    //Prepare data to add to cache server
+                    $customerArray = (array)$customer;
+                    $customerArray['id'] = $lastInsertedId;
+
+                    //Request to add each customer details to the cache server
+                    $this->get('sorted_set_cache_service')->set(array('key' => $cacheElementName, 'score' => 1, 'value' => serialize($customerArray)) );
+                }
+            }
+        }else{
+            return new JsonResponse(array('status' => 'No donuts for you'), 400);
         }
 
-        foreach ($customers as $customer) {
-            $database->customers->insertOne($customer);
-        }
-
-        return new JsonResponse(['status' => 'Customers successfully created']);
+        return new JsonResponse(array('status' => 'Customers successfully created'),200);
     }
 
     /**
@@ -54,9 +109,19 @@ class CustomersController extends Controller
      */
     public function deleteAction()
     {
-        $database = $this->get('database_service')->getDatabase();
-        $database->customers->drop();
+        //Request to delete all the customers in database
+        $this->get('customer_service')->deleteCustomers();
 
-        return new JsonResponse(['status' => 'Customers successfully deleted']);
+        $cacheServerStatus = $this->get('cache_service')->getServerStatus();
+
+        if($cacheServerStatus == 'Running') {
+            //Read the cache element name from config parameters
+            $cacheElementName = $this->container->getParameter('cache_element_customers') ?? 'customers';
+
+            //Request to clear the cache server
+            $this->get('sorted_set_cache_service')->del(array('keys' => array($cacheElementName)));
+        }
+
+        return new JsonResponse(array('status' => 'Customers successfully deleted'),200);
     }
 }

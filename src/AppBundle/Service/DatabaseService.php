@@ -2,7 +2,6 @@
 
 namespace AppBundle\Service;
 
-use \MongoClient;
 use \MongoDB;
 
 class DatabaseService
@@ -27,4 +26,5 @@ class DatabaseService
     {
         return $this->database;
     }
+
 }
