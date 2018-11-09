@@ -2,6 +2,8 @@ parameters:
     database_host: 127.0.0.1
     database_port: 27017
     database_name: customers
+    database_port2: 2050
+    replica_set: rs0
     secret: abc
     cache_host: 127.0.0.1
     cache_port: 6379

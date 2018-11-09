@@ -8,6 +8,10 @@ use Symfony\Component\HttpFoundation\Request;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Route;
 use Sensio\Bundle\FrameworkExtraBundle\Configuration\Method;
 
+/**
+ * Class CustomersController
+ * @package AppBundle\Controller
+ */
 class CustomersController extends Controller
 {
 

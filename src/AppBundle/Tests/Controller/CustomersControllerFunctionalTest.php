@@ -16,6 +16,8 @@ class CustomersControllerFunctionalTest extends WebTestCase
 
     public function testCreateCustomers()
     {
+        self::bootKernel();
+
         $customers = [
             ['name' => 'Leandro', 'age' => 26],
             ['name' => 'Marcelo', 'age' => 30],
